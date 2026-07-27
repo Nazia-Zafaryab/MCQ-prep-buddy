@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MCQ Prep Buddy - Teaching Job Test Preparation</title>
-<script src="https://js.puter.com/v2/"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -145,22 +144,11 @@ async function generateQuiz() {
   const userPrompt = `Generate 5 multiple choice questions about: ${topic}`;
 
   try {
-    const response = await puter.ai.chat(
-      [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      { model: "gpt-4o-mini" }
-    );
-
-    let text = "";
-    if (typeof response === "string") {
-      text = response;
-    } else if (response && response.message && response.message.content) {
-      text = response.message.content;
-    } else if (response && response.toString) {
-      text = response.toString();
-    }
+    const fullPrompt = systemPrompt + "\n\n" + userPrompt;
+    const apiUrl = "https://text.pollinations.ai/" + encodeURIComponent(fullPrompt) + "?model=openai&json=true";
+    const res = await fetch(apiUrl);
+    if (!res.ok) throw new Error("API request failed");
+    const text = await res.text();
 
     // Extract JSON from the response (in case there's extra text around it)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
