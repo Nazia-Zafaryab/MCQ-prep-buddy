@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCQ Prep Buddy - Teaching Job Test Preparation</title>
+<script src="https://js.puter.com/v2/"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+
+<div class="max-w-2xl mx-auto px-4 py-10">
+
+  <!-- Header -->
+  <div class="text-center mb-8">
+    <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-green-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+      <span class="text-3xl">🎓</span>
+    </div>
+    <h1 class="text-4xl font-bold text-gray-800">MCQ Prep Buddy</h1>
+    <p class="text-gray-500 mt-2">Generate a 5-question practice quiz on any topic and test your knowledge for teaching job exams.</p>
+  </div>
+
+  <!-- Input Screen -->
+  <div id="inputScreen" class="bg-white rounded-2xl shadow-lg p-6">
+    <label class="block text-gray-700 font-medium mb-2">Enter a topic</label>
+    <input id="topicInput" type="text" placeholder="e.g. Child Development & Pedagogy"
+      class="w-full border border-gray-300 rounded-xl px-4 py-3 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400">
+
+    <div class="flex flex-wrap gap-2 mb-6">
+      <button onclick="setTopic('Pedagogy')" class="chip">Pedagogy</button>
+      <button onclick="setTopic('English Grammar')" class="chip">English Grammar</button>
+      <button onclick="setTopic('General Science')" class="chip">General Science</button>
+      <button onclick="setTopic('Pakistan Studies')" class="chip">Pakistan Studies</button>
+      <button onclick="setTopic('Islamic Studies')" class="chip">Islamic Studies</button>
+    </div>
+
+    <button onclick="generateQuiz()" id="generateBtn"
+      class="w-full bg-gradient-to-r from-blue-500 to-green-500 text-white font-semibold py-3 rounded-xl hover:opacity-90 transition">
+      ✨ Generate Quiz
+    </button>
+    <p id="errorMsg" class="text-red-500 text-sm mt-3 text-center"></p>
+  </div>
+
+  <!-- Loading Screen -->
+  <div id="loadingScreen" class="hidden bg-white rounded-2xl shadow-lg p-10 text-center">
+    <div class="w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+    <p class="text-gray-600">Generating your quiz...</p>
+  </div>
+
+  <!-- Quiz Screen -->
+  <div id="quizScreen" class="hidden bg-white rounded-2xl shadow-lg p-6">
+    <div class="flex justify-between items-center mb-4">
+      <span class="text-sm text-gray-500 font-medium" id="questionCounter">Question 1 of 5</span>
+      <div class="w-32 bg-gray-200 rounded-full h-2">
+        <div id="progressBar" class="bg-green-500 h-2 rounded-full transition-all" style="width:20%"></div>
+      </div>
+    </div>
+    <h2 id="questionText" class="text-lg font-semibold text-gray-800 mb-5"></h2>
+    <div id="optionsContainer" class="space-y-3 mb-6"></div>
+    <button onclick="nextQuestion()" id="nextBtn"
+      class="w-full bg-gradient-to-r from-blue-500 to-green-500 text-white font-semibold py-3 rounded-xl hover:opacity-90 transition disabled:opacity-40"
+      disabled>
+      Next
+    </button>
+  </div>
+
+  <!-- Results Screen -->
+  <div id="resultsScreen" class="hidden bg-white rounded-2xl shadow-lg p-6">
+    <div class="text-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-800">Your Score</h2>
+      <p class="text-5xl font-bold mt-3 mb-1" id="scoreDisplay"></p>
+      <p class="text-gray-500" id="topicResult"></p>
+    </div>
+    <div id="resultsBreakdown" class="space-y-4 mb-6"></div>
+    <button onclick="restart()"
+      class="w-full bg-gradient-to-r from-blue-500 to-green-500 text-white font-semibold py-3 rounded-xl hover:opacity-90 transition">
+      🔄 Try Another Topic
+    </button>
+  </div>
+
+</div>
+
+<style>
+  .chip {
+    background: #f0f9ff;
+    color: #0369a1;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    border: 1px solid #bae6fd;
+    cursor: pointer;
+  }
+  .chip:hover { background: #e0f2fe; }
+  .option-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 2px solid #e5e7eb;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .option-btn:hover { border-color: #93c5fd; background: #f0f9ff; }
+  .option-selected { border-color: #3b82f6 !important; background: #eff6ff !important; }
+  .option-correct { border-color: #22c55e !important; background: #f0fdf4 !important; }
+  .option-wrong { border-color: #ef4444 !important; background: #fef2f2 !important; }
+</style>
+
+<script>
+let currentTopic = "";
+let questions = [];
+let currentIndex = 0;
+let userAnswers = [];
+let selectedOption = null;
+
+function setTopic(t) {
+  document.getElementById('topicInput').value = t;
+}
+
+function show(id) {
+  ['inputScreen','loadingScreen','quizScreen','resultsScreen'].forEach(s => {
+    document.getElementById(s).classList.add('hidden');
+  });
+  document.getElementById(id).classList.remove('hidden');
+}
+
+async function generateQuiz() {
+  const topic = document.getElementById('topicInput').value.trim();
+  const errorMsg = document.getElementById('errorMsg');
+  errorMsg.textContent = "";
+
+  if (!topic) {
+    errorMsg.textContent = "Please enter a topic first.";
+    return;
+  }
+
+  currentTopic = topic;
+  show('loadingScreen');
+
+  const systemPrompt = `You are a quiz question generator for teaching job recruitment test preparation (like NTS/PPSC pattern in Pakistan). Generate exactly 5 multiple choice questions on the given topic. Return ONLY valid JSON, no other text, no markdown code fences, in this exact format:
+{"questions": [{"question": "...", "options": ["A", "B", "C", "D"], "correct": 0, "explanation": "..."}]}
+"correct" is the zero-based index (0-3) of the correct option. Questions should be moderately challenging, appropriate for a teaching job entrance exam. Explanations should be one concise sentence.`;
+
+  const userPrompt = `Generate 5 multiple choice questions about: ${topic}`;
+
+  try {
+    const response = await puter.ai.chat(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      { model: "gpt-4o-mini" }
+    );
+
+    let text = "";
+    if (typeof response === "string") {
+      text = response;
+    } else if (response && response.message && response.message.content) {
+      text = response.message.content;
+    } else if (response && response.toString) {
+      text = response.toString();
+    }
+
+    // Extract JSON from the response (in case there's extra text around it)
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("Could not parse quiz data.");
+
+    const data = JSON.parse(jsonMatch[0]);
+    if (!data.questions || data.questions.length === 0) throw new Error("No questions generated.");
+
+    questions = data.questions;
+    currentIndex = 0;
+    userAnswers = [];
+    selectedOption = null;
+    renderQuestion();
+    show('quizScreen');
+  } catch (err) {
+    console.error(err);
+    show('inputScreen');
+    errorMsg.textContent = "Something went wrong generating the quiz. Please try again.";
+  }
+}
+
+function renderQuestion() {
+  const q = questions[currentIndex];
+  document.getElementById('questionCounter').textContent = `Question ${currentIndex + 1} of ${questions.length}`;
+  document.getElementById('progressBar').style.width = `${((currentIndex + 1) / questions.length) * 100}%`;
+  document.getElementById('questionText').textContent = q.question;
+
+  const container = document.getElementById('optionsContainer');
+  container.innerHTML = "";
+  selectedOption = null;
+  document.getElementById('nextBtn').disabled = true;
+
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.textContent = opt;
+    btn.onclick = () => selectOption(i, btn);
+    container.appendChild(btn);
+  });
+
+  document.getElementById('nextBtn').textContent =
+    currentIndex === questions.length - 1 ? "See Results" : "Next";
+}
+
+function selectOption(index, btnEl) {
+  selectedOption = index;
+  document.querySelectorAll('#optionsContainer .option-btn').forEach(b => {
+    b.classList.remove('option-selected');
+  });
+  btnEl.classList.add('option-selected');
+  document.getElementById('nextBtn').disabled = false;
+}
+
+function nextQuestion() {
+  userAnswers.push(selectedOption);
+
+  if (currentIndex < questions.length - 1) {
+    currentIndex++;
+    renderQuestion();
+  } else {
+    showResults();
+  }
+}
+
+function showResults() {
+  let score = 0;
+  const breakdown = document.getElementById('resultsBreakdown');
+  breakdown.innerHTML = "";
+
+  questions.forEach((q, i) => {
+    const isCorrect = userAnswers[i] === q.correct;
+    if (isCorrect) score++;
+
+    const div = document.createElement('div');
+    div.className = `p-4 rounded-xl border-2 ${isCorrect ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`;
+    div.innerHTML = `
+      <p class="font-medium text-gray-800 mb-1">${i + 1}. ${q.question}</p>
+      <p class="text-sm ${isCorrect ? 'text-green-700' : 'text-red-700'} mb-1">
+        ${isCorrect ? '✓ Correct' : '✗ Wrong'} — Your answer: ${q.options[userAnswers[i]] ?? 'None'}
+      </p>
+      ${!isCorrect ? `<p class="text-sm text-green-700 mb-1">Correct answer: ${q.options[q.correct]}</p>` : ''}
+      <p class="text-sm text-gray-500 italic">${q.explanation}</p>
+    `;
+    breakdown.appendChild(div);
+  });
+
+  const scoreEl = document.getElementById('scoreDisplay');
+  scoreEl.textContent = `${score} / ${questions.length}`;
+  scoreEl.className = `text-5xl font-bold mt-3 mb-1 ${score >= 4 ? 'text-green-600' : score >= 2 ? 'text-blue-600' : 'text-red-500'}`;
+  document.getElementById('topicResult').textContent = `Topic: ${currentTopic}`;
+
+  show('resultsScreen');
+}
+
+function restart() {
+  document.getElementById('topicInput').value = "";
+  document.getElementById('errorMsg').textContent = "";
+  show('inputScreen');
+}
+</script>
+
+</body>
+</html>
