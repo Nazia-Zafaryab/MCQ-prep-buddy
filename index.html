@@ -144,11 +144,23 @@ async function generateQuiz() {
   const userPrompt = `Generate 5 multiple choice questions about: ${topic}`;
 
   try {
-    const fullPrompt = systemPrompt + "\n\n" + userPrompt;
-    const apiUrl = "https://text.pollinations.ai/" + encodeURIComponent(fullPrompt) + "?model=openai&json=true";
-    const res = await fetch(apiUrl);
-    if (!res.ok) throw new Error("API request failed");
-    const text = await res.text();
+    const res = await fetch("https://text.pollinations.ai/openai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "openai",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ]
+      })
+    });
+
+    if (!res.ok) throw new Error("API request failed with status " + res.status);
+    const data = await res.json();
+    const text = data.choices && data.choices[0] && data.choices[0].message
+      ? data.choices[0].message.content
+      : JSON.stringify(data);
 
     // Extract JSON from the response (in case there's extra text around it)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -166,7 +178,7 @@ async function generateQuiz() {
   } catch (err) {
     console.error(err);
     show('inputScreen');
-    errorMsg.textContent = "Something went wrong generating the quiz. Please try again.";
+    errorMsg.textContent = "Error: " + err.message + " — Please try again.";
   }
 }
 
